@@ -75,30 +75,89 @@ def create_sessions(results, num_sessions=4, max_topics_per_session=7, df=None):
             scheduled_participants.update(data['participants'])
 
     unscheduled_participants = set(df['Name']) - scheduled_participants
-
+    
     for participant in unscheduled_participants:
-        highest_interest_topic = None
-        highest_interest_value = 0
-
+        top_interests = [] #list to store the top interests.
         for topic in results:
             interest_value = df.loc[df['Name'] == participant, topic].values[0]
-            if interest_value > highest_interest_value and interest_value < 6: #find highest interest that is not volunteer.
-                highest_interest_value = interest_value
-                highest_interest_topic = topic
+            if interest_value < 6: #exclude volunteers.
+                top_interests.append((interest_value, topic)) #add the interest to the list.
 
-        if highest_interest_topic:
-            session_to_add = min(sessions, key=lambda s: len(sessions[s])) #add to shortest session.
-            session_participants = set()
-            for t_data in sessions[session_to_add].values():
-                session_participants.update(t_data['participants'])
+        top_interests.sort(key=lambda x: x[0], reverse=True) #sort the interests in descending order.
+        # Schedule unscheduled participants for each session
+    scheduled_participants = set()
+    for session in sessions.values():
+        for data in session.values():
+            scheduled_participants.update(data['participants'])
 
-            if participant not in session_participants and len(sessions[session_to_add]) < max_topics_per_session:
+    unscheduled_participants = set(df['Name']) - scheduled_participants
 
-                if highest_interest_topic in sessions[session_to_add]: #add to existing topic.
-                  sessions[session_to_add][highest_interest_topic]['participants'].append(participant)
-                else: #create new topic.
-                  sessions[session_to_add][highest_interest_topic] = {'participants': [participant], 'volunteers': []}
-                # no need to change session_index here, since we are adding to a session that already exists.
+    for participant in unscheduled_participants:
+        
+        top_interests = []
+        for topic in results:
+            interest_value = df.loc[df['Name'] == participant, topic].values[0]
+            if interest_value < 6:
+                top_interests.append((interest_value, topic))
+
+        top_interests.sort(key=lambda x: x[0], reverse=True)
+        
+        for session_name in sessions:
+            if top_interests:
+                topic_to_add = top_interests.pop(0)
+                topic_to_add = topic_to_add[1] #get the topic name.
+                session_participants = set()
+                for t_data in sessions[session_name].values():
+                    session_participants.update(t_data['participants'])
+
+                if participant not in session_participants and len(sessions[session_name]) < max_topics_per_session:
+
+                    if topic_to_add in sessions[session_name]:
+                        sessions[session_name][topic_to_add]['participants'].append(participant)
+                    else:
+                        sessions[session_name][topic_to_add] = {'participants': [participant], 'volunteers': []}
+            
+    # Final check and scheduling for remaining unscheduled participants
+    scheduled_participants = set()
+    for session in sessions.values():
+        for data in session.values():
+            scheduled_participants.update(data['participants'])
+
+    remaining_unscheduled = set(df['Name']) - scheduled_participants
+    
+    for participant in remaining_unscheduled:
+        for session_name in sessions:
+            session_participants = [p for data in sessions[session_name].values() for p in data['participants']]
+            if participant not in session_participants:
+                top_interests = []
+                for topic in results:
+                    interest_value = df.loc[df['Name'] == participant, topic].values[0]
+                    if interest_value < 6:
+                        top_interests.append((interest_value, topic))
+                top_interests.sort(key=lambda x: x[0], reverse=True)
+                if top_interests:
+                    topic_to_add = top_interests[0][1]
+                    if topic_to_add in sessions[session_name]:
+                        sessions[session_name][topic_to_add]['participants'].append(participant)
+                    else:
+                        sessions[session_name][topic_to_add] = {'participants': [participant], 'volunteers': []}
+    return sessions
+
+def final(sessions):
+    # Final group size check and splitting
+    for session_name, session_data in sessions.items():
+        for topic, data in list(session_data.items()):  # Use list() to avoid dictionary size change during iteration
+            participants = data['participants']
+            if 10 < len(participants):
+                half_len = len(participants) // 2
+                first_half = participants[:half_len]
+                second_half = participants[half_len:]
+                session_data[f"{topic} (1)"] = {'participants': first_half, 'volunteers': [v for v in data['volunteers'] if v in first_half]}
+                session_data[f"{topic} (2)"] = {'participants': second_half, 'volunteers': [v for v in data['volunteers'] if v in second_half]}
+                del session_data[topic]
+
+            elif len(participants) < 3 and len(participants) > 0:
+                del session_data[topic] #remove groups that are too small.
 
     return sessions
 
@@ -130,4 +189,5 @@ if __name__ == '__main__':
     df = pd.read_csv('interests.csv')
     results = analyze_interest(df)
     sessions = create_sessions(results, df=df)
+    sessions = final(sessions)
     print_sessions_with_participants_and_volunteers(sessions)
