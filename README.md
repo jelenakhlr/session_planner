@@ -30,7 +30,7 @@ This project is designed to analyze participant interests from a CSV file and cr
 
 ## Usage
 
-1. Prepare a CSV file named [interests.csv](http://_vscodecontentref_/0) with the following format:
+1. Prepare a CSV file named [interests.csv] with the following format:
     ```csv
     Name,Topic1,Topic2,Topic3,...
     Alice,5,6,3,...
