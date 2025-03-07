@@ -1,3 +1,4 @@
 # Ignore all CSV files
 *.csv
 *.txt
+.DS_Store
