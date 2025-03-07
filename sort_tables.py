@@ -92,10 +92,23 @@ def print_sessions_with_people(sessions, topic_groups):
     for session_num, topics in sessions.items():
         print(f"Session {session_num}:")
         for topic in topics:
-            print(f"  - {topic}:")
+            print(f"- Group: {topic} -")
             for person in topic_groups[topic]:
-                print(f"    - {person}")
+                print(f"{person}")
         print("-" * 20)
+
+def print_volunteers(df):
+    """
+    Prints the names of participants who have specified a 6 (volunteers) and the topics they volunteered for.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing participant names and interests.
+    """
+    volunteers = df[df.iloc[:, 1:] == 6].dropna(how='all')
+    for index, row in volunteers.iterrows():
+        name = row['Name']
+        topics = row[row == 6].index.tolist()
+        print(f"{name} volunteered for: {', '.join(topics)}")
 
 if __name__ == "__main__":
     csv_file_path = 'interests.csv'
@@ -104,3 +117,5 @@ if __name__ == "__main__":
         topic_groups = create_topic_groups(top_interests_df)
         sessions = assign_sessions_optimized(topic_groups)
         print_sessions_with_people(sessions, topic_groups)
+        print("\nVolunteers:")
+        print_volunteers(pd.read_csv(csv_file_path))
